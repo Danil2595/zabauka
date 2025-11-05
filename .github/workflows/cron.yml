@@ -1,10 +1,48 @@
-name: Zabauka test
+name: Zabauka — Collector & Poster
 
 on:
   workflow_dispatch:
+  schedule:
+    # GitHub в UTC. 21:25 Минск (UTC+3) = 18:25 UTC
+    - cron: '25 18 * * *'
 
 jobs:
-  test:
+  collector:
+    name: Collector & Poster
     runs-on: ubuntu-latest
+
+    env:
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+      TG_CHANNEL:   ${{ secrets.TG_CHANNEL }}
+      MAX_POSTS:    ${{ vars.MAX_POSTS || '5' }}
+      DRY_RUN:      ${{ vars.DRY_RUN || '0' }}
+
     steps:
-      - run: echo "workflow visible"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      # Нормализуем main.py (убираем BOM/табы, ставим LF)
+      - name: Normalize main.py
+        run: |
+          python - <<'PY'
+p="main.py"
+b=open(p,"rb").read()
+if b.startswith(b"\xef\xbb\xbf"): b=b[3:]
+s=b.decode("utf-8",errors="replace").replace("\t","    ").replace("\r\n","\n").replace("\r","\n")
+open(p,"w",encoding="utf-8",newline="\n").write(s)
+print("Normalized main.py")
+PY
+
+      - name: Syntax check
+        run: python -m py_compile main.py
+
+      - name: Run collector & poster
+        run: python main.py
