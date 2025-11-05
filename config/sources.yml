@@ -1,1 +1,19 @@
+timezone: Europe/Minsk
 
+sources:
+  - name: "CityDog Афиша (RSS)"
+    type: "rss"
+    url: "https://citydog.io/api/rss/"   # общий RSS CityDog — для теста, чтобы проверить публикации
+    city: "Minsk"
+    category_hint: "news"
+
+  - name: "Relax.by Афиша (HTML)"
+    type: "html"
+    url: "https://afisha.relax.by/"
+    list_selector: ".events__item"                 # блок карточки
+    title_selector: ".events__title"               # заголовок
+    date_selector: ".events__date"                 # дата
+    place_selector: ".events__place"               # место
+    price_selector: ".events__price"               # цена
+    link_selector: "a"
+    category_hint: "concert"
