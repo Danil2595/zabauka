@@ -7,7 +7,7 @@ from dateutil import tz, parser as dtparser
 # === Общие настройки ===
 TZ = tz.gettz("Europe/Minsk")
 TOKEN = os.environ["TG_BOT_TOKEN"]
-CHANNEL = os.environ.get("TG_CHANNEL")           # вида @имя_канала
+CHANNEL = os.environ.get("TG_CHANNEL")  # вида @имя_канала
 MAX_POSTS = int(os.getenv("MAX_POSTS", "5"))
 
 # === Память (anti-duplicate) ===
@@ -49,10 +49,10 @@ def load_sources():
         cfg = yaml.safe_load(f) or {}
     return cfg.get("sources", [])
 
-# --- картинки: og:image ---
+# === Картинки (og:image) ===
 def fetch_og_image(url: str):
     try:
-        html = requests.get(url, timeout=15, headers={"User-Agent":"Mozilla/5.0"}).text
+        html = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"}).text
         s = BeautifulSoup(html, "lxml")
         tag = s.find("meta", property="og:image")
         if tag and tag.get("content"):
@@ -61,7 +61,7 @@ def fetch_og_image(url: str):
         print("og:image error:", e)
     return None
 
-# === Сборщики ===
+# === Сбор RSS ===
 def collect_rss(src):
     items = []
     feed = feedparser.parse(src["url"])
@@ -69,14 +69,13 @@ def collect_rss(src):
         title = (e.get("title") or "").strip()
         link = e.get("link") or ""
 
-        # дата, если есть
         start = None
         if e.get("published_parsed"):
             start = to_local(datetime(*e.published_parsed[:6]))
         elif e.get("published") or e.get("updated"):
             start = try_parse_date(e.get("published") or e.get("updated"))
 
-        # картинка: media:content / media:thumbnail / enclosure image/*
+        # картинка из RSS
         img = None
         mc = e.get("media_content") or []
         if isinstance(mc, list) and mc:
@@ -87,8 +86,9 @@ def collect_rss(src):
                 img = mt[0].get("url")
         if not img and e.get("links"):
             for L in e["links"]:
-                if L.get("type","").startswith("image/") and L.get("href"):
-                    img = L["href"]; break
+                if L.get("type", "").startswith("image/") and L.get("href"):
+                    img = L["href"]
+                    break
 
         it = {
             "id": make_id(src["name"], title, link),
@@ -107,16 +107,19 @@ def collect_rss(src):
         items.append(it)
     return items
 
+# === Сбор HTML ===
 def collect_html(src):
-    r = requests.get(src["url"], timeout=25, headers={"User-Agent":"Mozilla/5.0"})
+    r = requests.get(src["url"], timeout=25, headers={"User-Agent": "Mozilla/5.0"})
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "lxml")
     cards = soup.select(src["list_selector"])
     out = []
+
     for card in cards:
         def tex(q):
             el = card.select_one(q) if q else None
             return el.get_text(strip=True) if el else None
+
         def href(q):
             el = card.select_one(q) if q else None
             return (el["href"] if el and el.has_attr("href") else None)
@@ -126,15 +129,15 @@ def collect_html(src):
 
         # картинка из карточки
         img = None
-img_sel = src.get("image_selector")
-        if img_sel:
+        img_sel = src.get("image_selector")
+if img_sel:
             pic = card.select_one(img_sel)
             if pic and pic.has_attr("src"):
                 img = pic["src"]
             elif pic and pic.has_attr("data-src"):
                 img = pic["data-src"]
 
-        # если нет — попробуем og:image на странице события
+        # если нет — пробуем og:image на странице события
         if not img and link:
             img = fetch_og_image(link)
 
@@ -156,9 +159,10 @@ img_sel = src.get("image_selector")
             "collected_at": now_iso(),
         }
         out.append(it)
+
     return out
 
-# === Нормализация и постинг ===
+# === Логика постинга ===
 def is_future(start_iso):
     if not start_iso:
         return True
@@ -168,7 +172,7 @@ def is_future(start_iso):
 def dedupe(items):
     seen, out = set(), []
     for it in items:
-        sig = hashlib.md5((it.get("title","") + (it.get("start") or "") + (it.get("place") or "")).encode("utf-8")).hexdigest()
+        sig = hashlib.md5((it.get("title", "") + (it.get("start") or "") + (it.get("place") or "")).encode("utf-8")).hexdigest()
         if sig in seen:
             continue
         seen.add(sig)
@@ -209,16 +213,16 @@ def post_message(text, image=None):
             "chat_id": CHANNEL,
             "text": text,
             "parse_mode": "HTML",
-            "disable_web_page_preview": False
+            "disable_web_page_preview": False,
         }
         r = requests.post(url, data=data, timeout=25)
     r.raise_for_status()
     return r.json()
 
+# === Основная функция ===
 def main():
     sources = load_sources()
 
-    # сбор
     collected = []
     for src in sources:
         try:
@@ -230,19 +234,17 @@ def main():
             print("collect error:", src.get("name"), ex)
 
     if not collected:
-        print("No items collected"); return
+        print("No items collected")
+        return
 
-    # нормализация
     items = [it for it in collected if is_future(it.get("start"))]
     items = dedupe(items)
 
-    # сортировка по времени
     def keyf(it):
         s = it.get("start")
         return dtparser.isoparse(s) if s else datetime.now(TZ) + timedelta(days=365)
     items.sort(key=keyf)
 
-    # память
     state = load_state()
     seen = set(state.get("posted_ids", []))
 
@@ -262,5 +264,5 @@ def main():
     state["posted_ids"] = list(seen)
     save_state(state)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
