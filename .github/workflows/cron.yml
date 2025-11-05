@@ -3,7 +3,6 @@ name: Run collector & poster
 on:
   schedule:
     - cron: '0 18 * * *'  # пример: каждый день в 21:00 по МСК
-    - cron: '1,2,3,4,5,6,7,8,9 * * *'
   workflow_dispatch:
 
 jobs:
