@@ -3,7 +3,7 @@ name: zabauka-autopost
 on:
   schedule:
     - cron: "0 7,12,18 * * *"   # 3 раза в день по UTC (подкорректируем позже)
-    - cron: " 30 18 * * *"
+    - cron: " 45 18 * * *"
     
   workflow_dispatch:
 
