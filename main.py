@@ -1,8 +1,8 @@
 import os
 import requests
 
-TOKEN = os.environ["TG_BOT_TOKEN"]              # берём из Secrets
-CHANNEL = os.environ.get("TG_CHANNEL")          # задан в workflow
+TOKEN = os.environ["TG_BOT_TOKEN"]          # из Secrets
+CHANNEL = os.environ.get("TG_CHANNEL")      # из workflow
 
 TEXT = "✅ Zabauka на связи! Первый тестовый пост из GitHub Actions."
 
@@ -14,5 +14,4 @@ def send_message(text: str):
     return r.json()
 
 if name == "__main__":
-    resp = send_message(TEXT)
-    print(resp)
+    print(send_message(TEXT))
