@@ -4,12 +4,26 @@ import requests, feedparser, yaml
 from bs4 import BeautifulSoup
 from dateutil import tz, parser as dtparser
 
-# === Настройки ===
+# === Общие настройки ===
 TZ = tz.gettz("Europe/Minsk")
 TOKEN = os.environ["TG_BOT_TOKEN"]
-CHANNEL = os.environ.get("TG_CHANNEL")   # вида @zabauka
+CHANNEL = os.environ.get("TG_CHANNEL")           # вида @ваш_канал
 MAX_POSTS = int(os.getenv("MAX_POSTS", "5"))
 
+# === Память (state) ===
+STATE_PATH = "data/state.json"
+
+def load_state():
+    os.makedirs("data", exist_ok=True)
+    if os.path.exists(STATE_PATH):
+        return json.load(open(STATE_PATH, "r", encoding="utf-8"))
+    return {"posted_ids": []}
+
+def save_state(s):
+    with open(STATE_PATH, "w", encoding="utf-8") as f:
+        json.dump(s, f, ensure_ascii=False, indent=2)
+
+# === Утилиты ===
 def now_iso():
     return datetime.now(TZ).isoformat()
 
@@ -35,7 +49,7 @@ def load_sources():
         cfg = yaml.safe_load(f) or {}
     return cfg.get("sources", [])
 
-# ------- Сборщики -------
+# === Сборщики ===
 def collect_rss(src):
     items = []
     feed = feedparser.parse(src["url"])
@@ -98,7 +112,7 @@ def collect_html(src):
         out.append(it)
     return out
 
-# ------- Нормализация/постинг -------
+# === Нормализация и постинг ===
 def is_future(start_iso):
     if not start_iso:
         return True
@@ -109,10 +123,10 @@ def dedupe(items):
     seen, out = set(), []
     for it in items:
         sig = hashlib.md5((it.get("title","") + (it.get("start") or "") + (it.get("place") or "")).encode("utf-8")).hexdigest()
-        if sig in seen: 
+        if sig in seen:
             continue
         seen.add(sig)
-        out.append(it)
+out.append(it)
     return out
 
 def format_post(it):
@@ -125,7 +139,7 @@ def format_post(it):
     cat = it.get("category")
     tags = f"\n#{cat} #минск" if cat else "\n#минск"
     return (
-f"🎯 <b>{it.get('title','Событие')}</b>\n"
+        f"🎯 <b>{it.get('title','Событие')}</b>\n"
         f"📅 {date_line}\n"
         f"📍 {place}\n"
         f"💰 {price}\n"
@@ -142,6 +156,8 @@ def post_message(text):
 
 def main():
     sources = load_sources()
+
+    # сбор
     collected = []
     for src in sources:
         try:
@@ -155,23 +171,38 @@ def main():
     if not collected:
         print("No items collected"); return
 
+    # нормализация
     items = [it for it in collected if is_future(it.get("start"))]
     items = dedupe(items)
 
+    # сортировка по времени (ближайшие первыми)
     def keyf(it):
         s = it.get("start")
         return dtparser.isoparse(s) if s else datetime.now(TZ) + timedelta(days=365)
     items.sort(key=keyf)
 
+    # загрузить память (C)
+    state = load_state()
+    seen = set(state.get("posted_ids", []))
+
     posted = 0
     for it in items[:MAX_POSTS]:
+        # пропустить, если уже постили (D)
+        if it["id"] in seen:
+            continue
         try:
             post_message(format_post(it))
+            # запомнить опубликованное (E)
+            seen.add(it["id"])
             posted += 1
             time.sleep(1.2)
         except Exception as ex:
             print("post error:", ex)
-    print(f"Posted: {posted}")
 
-if __name__ == '__main__':
-    main()
+    print(f"Posted: {posted}")
+    # сохранить обновлённую память
+    state["posted_ids"] = list(seen)
+    save_state(state)
+
+if name == '__main__':
+    main(
