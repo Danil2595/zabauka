@@ -1,8 +1,6 @@
 name: Run bot
-
 on:
-  workflow_dispatch:
-
+  workflow_dispatch: {}
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -11,32 +9,10 @@ jobs:
       TG_CHANNEL: ${{ secrets.TG_CHANNEL }}
       MAX_POSTS: ${{ vars.MAX_POSTS || '5' }}
       DRY_RUN: ${{ vars.DRY_RUN || '0' }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
-      - name: Install requirements
-        run: pip install -r requirements.txt
-
-      - name: Normalize main.py
-        run: |
-          python - <<'PY'
-p="main.py"
-b=open(p,"rb").read()
-if b.startswith(b"\xef\xbb\xbf"): b=b[3:]
-s=b.decode("utf-8",errors="replace").replace("\t","    ").replace("\r\n","\n").replace("\r","\n")
-open(p,"w",encoding="utf-8",newline="\n").write(s)
-print("Normalized main.py")
-PY
-
-      - name: Syntax check
-        run: python -m py_compile main.py
-
-      - name: Run collector and poster
-        run: python main.py
+      - run: pip install -r requirements.txt
+      - run: python main.py
