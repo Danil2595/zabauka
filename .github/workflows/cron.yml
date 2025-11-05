@@ -1,29 +1,64 @@
 name: Run collector & poster
 
 on:
+  workflow_dispatch: {}
   schedule:
-    - cron: '0 18 * * *'  # пример: каждый день в 21:00 по МСК
-  workflow_dispatch:
+    # GitHub использует UTC. 21:25 Минск (UTC+3) == 18:25 UTC
+    - cron: '25 18 * * *'
 
 jobs:
   run:
     runs-on: ubuntu-latest
+
+    env:
+      TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+      TG_CHANNEL:   ${{ secrets.TG_CHANNEL }}
+      MAX_POSTS:    ${{ vars.MAX_POSTS || '5' }}
+      # Поставь DRY_RUN=1 в Repository → Variables, если хочешь тест без постинга
+      DRY_RUN:      ${{ vars.DRY_RUN || '0' }}
+
     steps:
-      - name: Set up job
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
 
       - name: Install requirements
         run: pip install -r requirements.txt
 
-      - name: Check & format code
+      # Нормализуем файл: убираем BOM, табы -> пробелы, перевод строк LF
+      - name: Normalize main.py
+        run: |
+          python - <<'PY'
+import sys
+p='main.py'
+b=open(p,'rb').read()
+# strip UTF-8 BOM
+if b.startswith(b'\xef\xbb\xbf'):
+    b=b[3:]
+s=b.decode('utf-8',errors='replace')
+# tabs -> 4 spaces; normalize newlines
+s=s.replace('\t','    ').replace('\r\n','\n').replace('\r','\n')
+open(p,'w',encoding='utf-8',newline='\n').write(s)
+print('Normalized main.py')
+PY
+          echo '--- show lines 110..160 ---'
+          nl -ba main.py | sed -n '110,160p'
+          echo '--- grep tabs (should be empty) ---'
+          (grep -nP '\t' main.py || true)
+
+      - name: Syntax check (hard fail if broken)
+        run: python -m py_compile main.py
+
+      # Форматирование (не ломает сборку даже если black недоволен)
+      - name: Format with black (non-blocking)
         run: |
           pip install black
-          black . --line-length 100
+          black . --line-length 100 || true
 
       - name: Run collector & poster
         run: python main.py
