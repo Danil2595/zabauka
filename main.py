@@ -1,8 +1,8 @@
 import os, json, time, hashlib
-    from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 import requests, feedparser, yaml
-    from bs4 import BeautifulSoup
-    from dateutil import tz, parser as dtparser
+from bs4 import BeautifulSoup
+from dateutil import tz, parser as dtparser
     
     # === Общие настройки ===
     TZ = tz.gettz("Europe/Minsk")
