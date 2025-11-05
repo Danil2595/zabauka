@@ -12,8 +12,8 @@ from dateutil import tz, parser as dtparser
 
 # === Общие настройки ===
 TZ = tz.gettz("Europe/Minsk")
-TOKEN = os.environ["TG_BOT_TOKEN"]                    # должен быть в секретах
-CHANNEL = os.environ.get("TG_CHANNEL")                # вида @channel_username
+TOKEN = os.environ["TG_BOT_TOKEN"]          # секрет в Actions
+CHANNEL = os.environ.get("TG_CHANNEL")      # вида @channel_username
 MAX_POSTS = int(os.getenv("MAX_POSTS", "5"))
 
 # === Память (anti-duplicate) ===
@@ -66,15 +66,9 @@ def load_sources():
 # === Картинки (og:image) ===
 def fetch_og_image(url: str):
     try:
-        html = requests.get(
-            url,
-            timeout=15,
-            headers={"User-Agent": "Mozilla/5.0"},
-        ).text
+        html = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"}).text
         s = BeautifulSoup(html, "lxml")
-        tag = s.find("meta", property="og:image") or s.find(
-            "meta", attrs={"name": "twitter:image"}
-        )
+        tag = s.find("meta", property="og:image") or s.find("meta", attrs={"name": "twitter:image"})
         if tag and tag.get("content"):
             return tag["content"]
     except Exception as e:
@@ -131,9 +125,7 @@ def collect_rss(src):
 
 # === Сбор HTML ===
 def collect_html(src):
-    r = requests.get(
-        src["url"], timeout=25, headers={"User-Agent": "Mozilla/5.0"}
-    )
+    r = requests.get(src["url"], timeout=25, headers={"User-Agent": "Mozilla/5.0"})
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "lxml")
     cards = soup.select(src["list_selector"])
@@ -146,9 +138,10 @@ def collect_html(src):
 
         def href(q):
             el = card.select_one(q) if q else None
-return el["href"] if (el and el.has_attr("href")) else None
+            return el["href"] if (el and el.has_attr("href")) else None
 
-        title = tex(src.get("title_selector")) or "Событие"
+        # === ВАЖНО: всё ниже — внутри цикла по карточкам ===
+title = tex(src.get("title_selector")) or "Событие"
         link = href(src.get("link_selector")) or src["url"]
 
         # картинка из карточки
@@ -199,9 +192,7 @@ def dedupe(items):
     seen, out = set(), []
     for it in items:
         sig = hashlib.md5(
-            (it.get("title", "") + (it.get("start") or "") + (it.get("place") or "")).encode(
-                "utf-8"
-            )
+            (it.get("title", "") + (it.get("start") or "") + (it.get("place") or "")).encode("utf-8")
         ).hexdigest()
         if sig in seen:
             continue
@@ -234,21 +225,11 @@ def post_message(text, image=None):
         raise RuntimeError("TG_BOT_TOKEN / TG_CHANNEL не заданы в переменных окружения")
     if image:
         url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
-        data = {
-            "chat_id": CHANNEL,
-            "photo": image,
-            "caption": text,
-            "parse_mode": "HTML",
-        }
+        data = {"chat_id": CHANNEL, "photo": image, "caption": text, "parse_mode": "HTML"}
         r = requests.post(url, data=data, timeout=25)
     else:
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-        data = {
-            "chat_id": CHANNEL,
-            "text": text,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": False,
-        }
+        data = {"chat_id": CHANNEL, "text": text, "parse_mode": "HTML", "disable_web_page_preview": False}
         r = requests.post(url, data=data, timeout=25)
     r.raise_for_status()
     return r.json()
@@ -289,7 +270,7 @@ def main():
         if it["id"] in seen:
             continue
         try:
-post_message(format_post(it), it.get("image"))
+            post_message(format_post(it), it.get("image"))
             seen.add(it["id"])
             posted += 1
             time.sleep(1.2)
@@ -297,10 +278,9 @@ post_message(format_post(it), it.get("image"))
             print("post error:", ex)
 
     print(f"Posted: {posted}")
-    state["posted_ids"] = list(seen)
+state["posted_ids"] = list(seen)
     save_state(state)
 
 
 if __name__ == "__main__":
     main()
-
