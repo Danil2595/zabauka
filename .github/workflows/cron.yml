@@ -1,24 +1,30 @@
-name: zabauka-autopost
+name: Run collector & poster
 
 on:
   schedule:
-    - cron: "0 7,12,18 * * *"   # 3 раза в день по UTC (подкорректируем позже)
-    - cron: " 45 18 * * *"
-    
+    - cron: '0 18 * * *'  # пример: каждый день в 21:00 по МСК
+    - cron: '1,2,3,4,5,6,7,8,9 * * *'
   workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Set up job
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - run: pip install -r requirements.txt
+          python-version: '3.10'
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Check & format code
+        run: |
+          pip install black
+          black . --line-length 100
+
       - name: Run collector & poster
         run: python main.py
-        env:
-          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          TG_CHANNEL: "@zabauka"   # замени на своё имя канала с @
-          MAX_POSTS: "5"
