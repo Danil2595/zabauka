@@ -7,10 +7,10 @@ from dateutil import tz, parser as dtparser
 # === Общие настройки ===
 TZ = tz.gettz("Europe/Minsk")
 TOKEN = os.environ["TG_BOT_TOKEN"]
-CHANNEL = os.environ.get("TG_CHANNEL")           # вида @ваш_канал
+CHANNEL = os.environ.get("TG_CHANNEL")           # вида @имя_канала
 MAX_POSTS = int(os.getenv("MAX_POSTS", "5"))
 
-# === Память (state) ===
+# === Память (anti-duplicate) ===
 STATE_PATH = "data/state.json"
 
 def load_state():
@@ -49,6 +49,18 @@ def load_sources():
         cfg = yaml.safe_load(f) or {}
     return cfg.get("sources", [])
 
+# --- картинки: og:image ---
+def fetch_og_image(url: str):
+    try:
+        html = requests.get(url, timeout=15, headers={"User-Agent":"Mozilla/5.0"}).text
+        s = BeautifulSoup(html, "lxml")
+        tag = s.find("meta", property="og:image")
+        if tag and tag.get("content"):
+            return tag["content"]
+    except Exception as e:
+        print("og:image error:", e)
+    return None
+
 # === Сборщики ===
 def collect_rss(src):
     items = []
@@ -56,11 +68,28 @@ def collect_rss(src):
     for e in feed.entries:
         title = (e.get("title") or "").strip()
         link = e.get("link") or ""
+
+        # дата, если есть
         start = None
         if e.get("published_parsed"):
             start = to_local(datetime(*e.published_parsed[:6]))
         elif e.get("published") or e.get("updated"):
             start = try_parse_date(e.get("published") or e.get("updated"))
+
+        # картинка: media:content / media:thumbnail / enclosure image/*
+        img = None
+        mc = e.get("media_content") or []
+        if isinstance(mc, list) and mc:
+            img = mc[0].get("url")
+        if not img:
+            mt = e.get("media_thumbnail") or []
+            if isinstance(mt, list) and mt:
+                img = mt[0].get("url")
+        if not img and e.get("links"):
+            for L in e["links"]:
+                if L.get("type","").startswith("image/") and L.get("href"):
+                    img = L["href"]; break
+
         it = {
             "id": make_id(src["name"], title, link),
             "source": src["name"],
@@ -72,6 +101,7 @@ def collect_rss(src):
             "price": None,
             "category": src.get("category_hint"),
             "city": src.get("city") or "Minsk",
+            "image": img,
             "collected_at": now_iso(),
         }
         items.append(it)
@@ -93,6 +123,21 @@ def collect_html(src):
 
         title = tex(src.get("title_selector")) or "Событие"
         link = href(src.get("link_selector")) or src["url"]
+
+        # картинка из карточки
+        img = None
+img_sel = src.get("image_selector")
+        if img_sel:
+            pic = card.select_one(img_sel)
+            if pic and pic.has_attr("src"):
+                img = pic["src"]
+            elif pic and pic.has_attr("data-src"):
+                img = pic["data-src"]
+
+        # если нет — попробуем og:image на странице события
+        if not img and link:
+            img = fetch_og_image(link)
+
         date_text = tex(src.get("date_selector"))
         start = try_parse_date(date_text)
 
@@ -107,6 +152,7 @@ def collect_html(src):
             "price": tex(src.get("price_selector")),
             "category": src.get("category_hint"),
             "city": "Minsk",
+            "image": img,
             "collected_at": now_iso(),
         }
         out.append(it)
@@ -126,7 +172,7 @@ def dedupe(items):
         if sig in seen:
             continue
         seen.add(sig)
-out.append(it)
+        out.append(it)
     return out
 
 def format_post(it):
@@ -147,10 +193,25 @@ def format_post(it):
         f"{tags}"
     )
 
-def post_message(text):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    data = {"chat_id": CHANNEL, "text": text, "parse_mode": "HTML", "disable_web_page_preview": False}
-    r = requests.post(url, data=data, timeout=25)
+def post_message(text, image=None):
+    if image:
+        url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
+        data = {
+            "chat_id": CHANNEL,
+            "photo": image,
+            "caption": text,
+            "parse_mode": "HTML",
+        }
+        r = requests.post(url, data=data, timeout=25)
+    else:
+        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+        data = {
+            "chat_id": CHANNEL,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": False
+        }
+        r = requests.post(url, data=data, timeout=25)
     r.raise_for_status()
     return r.json()
 
@@ -175,24 +236,22 @@ def main():
     items = [it for it in collected if is_future(it.get("start"))]
     items = dedupe(items)
 
-    # сортировка по времени (ближайшие первыми)
+    # сортировка по времени
     def keyf(it):
         s = it.get("start")
         return dtparser.isoparse(s) if s else datetime.now(TZ) + timedelta(days=365)
     items.sort(key=keyf)
 
-    # загрузить память (C)
+    # память
     state = load_state()
     seen = set(state.get("posted_ids", []))
 
     posted = 0
     for it in items[:MAX_POSTS]:
-        # пропустить, если уже постили (D)
         if it["id"] in seen:
             continue
         try:
-            post_message(format_post(it))
-            # запомнить опубликованное (E)
+            post_message(format_post(it), it.get("image"))
             seen.add(it["id"])
             posted += 1
             time.sleep(1.2)
@@ -200,9 +259,8 @@ def main():
             print("post error:", ex)
 
     print(f"Posted: {posted}")
-    # сохранить обновлённую память
     state["posted_ids"] = list(seen)
     save_state(state)
 
 if __name__ == '__main__':
-    main(
+    main()
