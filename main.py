@@ -13,5 +13,5 @@ def send_message(text: str):
     r.raise_for_status()
     return r.json()
 
-if name == "__main__":
+if __name__ == "__main__":
     print(send_message(TEXT))
