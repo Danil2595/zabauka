@@ -1,22 +1,16 @@
-name: Zabauka — Collector & Poster
+name: Run bot
 
 on:
   workflow_dispatch:
-  schedule:
-    # GitHub в UTC. 21:25 Минск (UTC+3) = 18:25 UTC
-    - cron: '25 18 * * *'
 
 jobs:
-  collector:
-    name: Collector & Poster
+  run:
     runs-on: ubuntu-latest
-
     env:
       TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-      TG_CHANNEL:   ${{ secrets.TG_CHANNEL }}
-      MAX_POSTS:    ${{ vars.MAX_POSTS || '5' }}
-      DRY_RUN:      ${{ vars.DRY_RUN || '0' }}
-
+      TG_CHANNEL: ${{ secrets.TG_CHANNEL }}
+      MAX_POSTS: ${{ vars.MAX_POSTS || '5' }}
+      DRY_RUN: ${{ vars.DRY_RUN || '0' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,7 +23,6 @@ jobs:
       - name: Install requirements
         run: pip install -r requirements.txt
 
-      # Нормализуем main.py (убираем BOM/табы, ставим LF)
       - name: Normalize main.py
         run: |
           python - <<'PY'
@@ -44,5 +37,5 @@ PY
       - name: Syntax check
         run: python -m py_compile main.py
 
-      - name: Run collector & poster
+      - name: Run collector and poster
         run: python main.py
