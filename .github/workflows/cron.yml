@@ -2,7 +2,7 @@ name: zabauka-autopost
 
 on:
   schedule:
-    - cron: "5 6,12,17 * * *"   # три раза в день
+    - cron: "0 7,12,18 * * *"   # 3 раза в день по UTC (подкорректируем позже)
   workflow_dispatch:
 
 jobs:
@@ -18,5 +18,5 @@ jobs:
         run: python main.py
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          TG_CHANNEL: "@zabauka"
+          TG_CHANNEL: "@zabauka"   # замени на своё имя канала с @
           MAX_POSTS: "5"
