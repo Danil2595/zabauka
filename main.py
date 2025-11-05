@@ -141,8 +141,8 @@ if img_sel:
 if not img and link:
             img = fetch_og_image(link)
 
-        date_text = tex(src.get("date_selector"))
-        start = try_parse_date(date_text)
+date_text = tex(src.get("date_selector"))
+start = try_parse_date(date_text)
 
         it = {
             "id": make_id(src["name"], title, link),
