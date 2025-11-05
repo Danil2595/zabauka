@@ -173,5 +173,5 @@ def main():
             print("post error:", ex)
     print(f"Posted: {posted}")
 
-if name == '__main__':
+if __name__ == '__main__':
     main()
