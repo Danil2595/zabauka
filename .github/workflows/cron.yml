@@ -1,12 +1,13 @@
-name: Run collector & poster
+name: Zabauka — Collector & Poster
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
   schedule:
     - cron: '25 18 * * *'  # 21:25 Минск (UTC+3)
 
 jobs:
-  run:
+  collector:
+    name: Collector & Poster
     runs-on: ubuntu-latest
 
     env:
@@ -23,12 +24,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
 
       - name: Install requirements
         run: pip install -r requirements.txt
 
-      - name: Normalize main.py (BOM/tabs/LF)
+      - name: Normalize main.py
         run: |
           python - <<'PY'
 p='main.py'
