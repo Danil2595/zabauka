@@ -1,1 +1,21 @@
+name: zabauka-autopost
 
+on:
+  schedule:
+    - cron: "0 * * * *"    # запуск каждый час
+  workflow_dispatch:        # можно запустить вручную
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests==2.32.3
+      - name: Run autopost
+        run: python main.py
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHANNEL: "@zabauka"   # замени на @имя_твоего_канала
