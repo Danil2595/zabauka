@@ -2,8 +2,8 @@ name: zabauka-autopost
 
 on:
   schedule:
-    - cron: "0 * * * *"    # запуск каждый час
-  workflow_dispatch:        # можно запустить вручную
+    - cron: "5 6,12,17 * * *"   # три раза в день
+  workflow_dispatch:
 
 jobs:
   run:
@@ -13,9 +13,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install requests==2.32.3
-      - name: Run autopost
+      - run: pip install -r requirements.txt
+      - name: Run collector & poster
         run: python main.py
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          TG_CHANNEL: "@zabauka"   # замени на @имя_твоего_канала
+          TG_CHANNEL: "@zabauka"
+          MAX_POSTS: "5"
