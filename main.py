@@ -138,7 +138,7 @@ if img_sel:
                 img = pic["data-src"]
 
         # если нет — пробуем og:image на странице события
-        if not img and link:
+if not img and link:
             img = fetch_og_image(link)
 
         date_text = tex(src.get("date_selector"))
