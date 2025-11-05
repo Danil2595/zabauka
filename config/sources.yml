@@ -1,19 +1,22 @@
 timezone: Europe/Minsk
 
 sources:
-  - name: "CityDog Афиша (RSS)"
+  # Рабочий RSS Relax.by (новости — для проверки пайплайна)
+  - name: "Relax.by Новости (RSS)"
     type: "rss"
-    url: "https://citydog.io/api/rss/"   # общий RSS CityDog — для теста, чтобы проверить публикации
+    url: "https://mag.relax.by/news-rss-feed.xml"
     city: "Minsk"
     category_hint: "news"
 
+  # Пример HTML-афиши Relax (селекторы примерные — можно уточнять)
   - name: "Relax.by Афиша (HTML)"
     type: "html"
     url: "https://afisha.relax.by/"
-    list_selector: ".events__item"                 # блок карточки
-    title_selector: ".events__title"               # заголовок
-    date_selector: ".events__date"                 # дата
-    place_selector: ".events__place"               # место
-    price_selector: ".events__price"               # цена
-    link_selector: "a"
+    list_selector: ".events__item"
+    title_selector: ".events__title"
+    date_selector:  ".events__date"
+    place_selector: ".events__place"
+    price_selector: ".events__price"
+    link_selector:  "a"
+    image_selector: "img"          # попробует взять из карточки; иначе — og:image со страницы
     category_hint: "concert"
